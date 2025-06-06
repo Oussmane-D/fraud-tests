@@ -1,0 +1,3 @@
+amount,transaction_type,country,is_fraud
+10,purchase,FR,0
+20,withdrawal,US,1
