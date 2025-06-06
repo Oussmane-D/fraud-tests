@@ -1,0 +1,5 @@
+mlflow==1.29.0       # dernière version publiée pour Py 3.7
+pandas==1.3.5        # dernière version Py 3.7
+numpy==1.21.6        # dernière version Py 3.7
+scikit-learn==1.0.2  # dernière version Py 3.7
+pytest==7.4.0

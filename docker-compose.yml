@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data    # ← utilise le volume nommé
+
+  airflow:
+    build: .
+    env_file: 
+      - ./config/env 
+    depends_on:
+      - postgres
+    environment:
+      PYTHONPATH: /opt/airflow/dags 
+      #MLFLOW_TRACKING_URI: "https://mlflow-server-demo.hf.space"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./tests:/opt/airflow/tests                   # ← tes DAGs
+    command:
+      - "bash"
+      - "-c"
+      - |
+        airflow db init &&
+        airflow users create --username admin --password admin --firstname Airflow --lastname Admin --role Admin --email admin@example.com &&
+        airflow webserver &
+        airflow scheduler
+  
+  api:
+    build: ./api
+    env_file: 
+      - ./config/env  
+    environment:
+    ports:
+      - "8000:8000"
+    depends_on:
+      - airflow
+
+# ← ajoute cette section tout en bas
+volumes:
+  postgres-data:
