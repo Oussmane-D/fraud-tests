@@ -34,6 +34,8 @@ jobs:
     - name: Run tests
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow_ci.db
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
       run: |
         docker compose build airflow          # si pas déjà fait
         docker compose run --rm --entrypoint "" airflow \
