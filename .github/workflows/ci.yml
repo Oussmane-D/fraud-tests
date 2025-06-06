@@ -40,13 +40,12 @@ jobs:
         
       run: |
         docker compose build airflow          # si pas déjà fait
-        docker compose run --rm --entrypoint="" `
-          -e DATA_CSV_PATH=/opt/airflow/tests/fixtures/transactions.csv `
-          -e MLFLOW_TRACKING_URI=http://dummy `
-          -e AIRFLOW__CORE__EXECUTOR=SequentialExecutor `
-          -e AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow_test.db `
+        docker compose run --rm --entrypoint="" \
+          -e DATA_CSV_PATH=/opt/airflow/tests/fixtures/transactions.csv \
+          -e MLFLOW_TRACKING_URI=http://dummy \
+          -e AIRFLOW__CORE__EXECUTOR=SequentialExecutor \
+          -e AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow_test.db \
           airflow bash -c "airflow db init && pytest /opt/airflow/tests -q"
-
 
     # 3. Build l’image API si les tests passent
     - name: Build API image
