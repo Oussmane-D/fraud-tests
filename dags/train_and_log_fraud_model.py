@@ -1,35 +1,42 @@
 import os
 from datetime import timedelta
-from airflow import DAG
-from airflow.utils.dates import days_ago
-from airflow.operators.python import PythonOperator
+
 import pandas as pd
-# ------------------------------------------------------------------
-# Config générale / variables d’environnement
-# ------------------------------------------------------------------
-os.environ["MLFLOW_TRACKING_URI"] = os.getenv("MLFLOW_TRACKING_URI")
-# → ajoute, si nécessaire, tes variables USERNAME / PASSWORD dans ton docker-compose
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
 
-default_args = {
-    "owner": "toi",
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
-}
+# ------------------------------------------------------------------------
+# Variables d’environnement (NE PAS écrire dans os.environ ici)
+# ------------------------------------------------------------------------
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI")      # ex. https://…hf.space
+DATA_CSV    = os.getenv("DATA_CSV_PATH")           # ex. /opt/airflow/…
 
-# ------------------------------------------------------------------
+def _require(value, name: str) -> str:
+    """Lève une erreur claire si la variable n’est pas définie."""
+    if not value:
+        raise RuntimeError(
+            f"{name} manquant : définissez-le via variable d'environnement "
+            f"ou dans le workflow CI."
+        )
+    return value
+
+# ------------------------------------------------------------------------
 # DAG
-# ------------------------------------------------------------------
+# ------------------------------------------------------------------------
+default_args = {"owner": "toi", "retries": 1, "retry_delay": timedelta(minutes=5)}
+
 with DAG(
     dag_id="train_and_log_fraud_model",
     description="Daily training + MLflow logging for fraud model",
     default_args=default_args,
     start_date=days_ago(1),
-    schedule_interval="0 2 * * *",   # chaque jour à 02h00
+    schedule_interval="0 2 * * *",   # chaque jour à 02 h 00
     catchup=False,
     tags=["fraud"],
 ) as dag:
 
-    # ------------------- 1. VALIDATION DES DONNÉES -------------------
+    # -------------------- 1. VALIDATION DES DONNÉES --------------------
     EXPECTED_COLS = [
         "amount",
         "transaction_type",
@@ -37,94 +44,82 @@ with DAG(
         "is_fraud",
     ]
 
-    def validate_data_callable():
-        """
-        Charge le jeu de données local (ou depuis S3/DB) et valide :
-        1. colonnes attendues présentes
-        2. pas de valeurs manquantes
-        3. cible binaire
-        """
-        import pandas as pd
-
-        df = pd.read_csv("/opt/airflow/data/transactions.csv")  # adapte la source
-
-        # 1️⃣ colonnes
+    def validate_df(df: pd.DataFrame) -> None:
+        """Vérifie (1) schéma, (2) valeurs manquantes, (3) cible binaire."""
+        # 1️⃣ colonnes présentes
         missing = set(EXPECTED_COLS) - set(df.columns)
         if missing:
             raise ValueError(f"Colonnes manquantes : {missing}")
 
-        # 2️⃣ valeurs manquantes
+        # 2️⃣ pas de valeurs manquantes
         if df[EXPECTED_COLS].isna().any().any():
             raise ValueError("Valeurs manquantes détectées")
 
         # 3️⃣ cible binaire
-        VALID_LABELS = {0, 1}
         labels = set(df["is_fraud"].unique())
-        if labels != VALID_LABELS:
-            raise ValueError(f"'is_fraud' doit contenir exactement {VALID_LABELS}, "
-                     f"or j’ai trouvé {labels}")
-       
+        if labels != {0, 1}:
+            raise ValueError(f"'is_fraud' doit contenir 0/1, j’ai trouvé {labels}")
+
+    def validate_data_callable(**_):
+        """Lit le CSV (chemin dans DATA_CSV_PATH) et applique validate_df."""
+        csv_path = _require(DATA_CSV, "DATA_CSV_PATH")
+        df = pd.read_csv(csv_path)
+        validate_df(df)
 
     validate_task = PythonOperator(
         task_id="validate_data",
         python_callable=validate_data_callable,
     )
 
-    # ------------------- 2. ENTRAÎNEMENT & LOG MLflow -------------------
-    def train_model_callable():
-        import pandas as pd
+    # ---------------- 2. ENTRAÎNEMENT & LOG DANS MLFLOW ----------------
+    def train_model_callable(**_):
         import numpy as np
-        from sklearn.model_selection import train_test_split
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.metrics import accuracy_score, roc_auc_score
+        from sklearn.model_selection import train_test_split
         import mlflow
         import mlflow.sklearn
 
-        # --- Charger ou simuler les données ---
-        df = pd.DataFrame(
-            {
-                "transaction_id": np.arange(1, 5001),
-                "amount": np.round(np.random.exponential(scale=50, size=5000), 2),
-                "transaction_type": np.random.choice(
-                    ["purchase", "withdrawal", "transfer"], size=5000, p=[0.7, 0.2, 0.1]
-                ),
-                "country": np.random.choice(["FR", "US", "DE", "ES", "IT"], size=5000),
-                "is_fraud": np.random.choice([0, 1], size=5000, p=[0.98, 0.02]),
-            }
-        )
+        mlflow.set_tracking_uri(_require(MLFLOW_URI, "MLFLOW_TRACKING_URI"))
+        mlflow.set_experiment("fraud_detection_dag")
 
-        df_encoded = pd.get_dummies(
-            df[["amount", "transaction_type", "country"]], drop_first=True
-        )
-        X = df_encoded
+        # --- jeu de données simulé ---
+        df = pd.DataFrame({
+            "transaction_id": np.arange(1, 5001),
+            "amount": np.round(np.random.exponential(scale=50, size=5000), 2),
+            "transaction_type": np.random.choice(
+                ["purchase", "withdrawal", "transfer"], size=5000, p=[0.7, 0.2, 0.1]
+            ),
+            "country": np.random.choice(["FR", "US", "DE", "ES", "IT"], size=5000),
+            "is_fraud": np.random.choice([0, 1], size=5000, p=[0.98, 0.02]),
+        })
+
+        X = pd.get_dummies(df[["amount", "transaction_type", "country"]], drop_first=True)
         y = df["is_fraud"]
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
+            X, y, test_size=0.20, random_state=42, stratify=y
         )
 
-        # --- MLflow ---
-        mlflow.set_experiment("fraud_detection_dag")
         with mlflow.start_run(run_name="rf_from_airflow"):
-            mlflow.log_params({"n_estimators": 100, "max_depth": 10})
-            rf = RandomForestClassifier(
-                n_estimators=100, max_depth=10, random_state=42, n_jobs=-1
-            )
+            params = {"n_estimators": 100, "max_depth": 10}
+            mlflow.log_params(params)
+
+            rf = RandomForestClassifier(**params, random_state=42, n_jobs=-1)
             rf.fit(X_train, y_train)
 
-            y_pred = rf.predict(X_test)
-            y_proba = rf.predict_proba(X_test)[:, 1]
-            mlflow.log_metrics(
-                {
-                    "accuracy": accuracy_score(y_test, y_pred),
-                    "roc_auc": roc_auc_score(y_test, y_proba),
-                }
-            )
-            mlflow.sklearn.log_model(rf, "model")  # log artefact
+            y_pred   = rf.predict(X_test)
+            y_proba  = rf.predict_proba(X_test)[:, 1]
+            mlflow.log_metrics({
+                "accuracy": accuracy_score(y_test, y_pred),
+                "roc_auc":  roc_auc_score(y_test, y_proba),
+            })
+
+            mlflow.sklearn.log_model(rf, artifact_path="model")
 
     train_task = PythonOperator(
         task_id="train_model_task",
         python_callable=train_model_callable,
     )
 
-    # ------------------- 3. ORDRE DES TÂCHES -------------------
+    # ------------------------- ORCHESTRATION --------------------------
     validate_task >> train_task
