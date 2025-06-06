@@ -40,7 +40,7 @@ jobs:
         
       run: |
         docker compose build airflow          # si pas déjà fait
-        docker compose run --rm --entrypoint="" \
+        docker compose run --rm --entrypoint="" `
           -e DATA_CSV_PATH=/opt/airflow/tests/fixtures/transactions.csv `
           -e MLFLOW_TRACKING_URI=http://dummy `
           -e AIRFLOW__CORE__EXECUTOR=SequentialExecutor `
