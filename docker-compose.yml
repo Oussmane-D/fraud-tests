@@ -11,7 +11,7 @@ services:
   airflow:
     build: .
     env_file: 
-      - ./config/env 
+      - .env 
     depends_on:
       - postgres
     environment:
@@ -24,7 +24,8 @@ services:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
-      - ./tests:/opt/airflow/tests                   # ← tes DAGs
+      - ./tests:/opt/airflow/tests
+      - ./data:/opt/airflow/data                  # ← tes DAGs
     command:
       - "bash"
       - "-c"
@@ -37,8 +38,10 @@ services:
   api:
     build: ./api
     env_file: 
-      - ./config/env  
+      - .env  
     environment:
+      PYTHONPATH: /opt/airflow/dags
+      MODEL_STAGE: Production
     ports:
       - "8000:8000"
     depends_on:
