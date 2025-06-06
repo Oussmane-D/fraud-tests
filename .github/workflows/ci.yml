@@ -33,6 +33,7 @@ jobs:
     # 2. Exécute Pytest dans l’image Airflow
     - name: Run tests
       env:
+        AIRFLOW__CORE__EXECUTOR: SequentialExecutor 
         MLFLOW_TRACKING_URI: http://dummy
         DATA_CSV_PATH: /opt/airflow/tests/fixtures/transactions.csv  
         AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow_test.db
