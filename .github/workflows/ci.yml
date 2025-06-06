@@ -32,7 +32,12 @@ jobs:
 
     # 2. Exécute Pytest dans l’image Airflow
     - name: Run tests
-      run: docker compose run --rm airflow pytest /opt/airflow/tests -q
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      run: |
+        docker compose build airflow          # si pas déjà fait
+        docker compose run --rm --entrypoint "" airflow \
+          pytest /opt/airflow/tests -q
 
     # 3. Build l’image API si les tests passent
     - name: Build API image
