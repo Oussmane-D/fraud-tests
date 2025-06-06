@@ -10,10 +10,12 @@ def load_latest_model() -> mlflow.pyfunc.PyFuncModel:
         raise RuntimeError(f"Experiment {EXPERIMENT_NAME} not found")
 
     # récupère la dernière run au statut FINISHED triée sur `start_time`
-    runs = client.search_runs(exp.experiment_id,
-                              filter_string="attributes.status = 'FINISHED'",
-                              order_by=["start_time DESC"],
-                              max_results=1)
+    runs = client.search_runs(
+        exp.experiment_id,
+        filter_string="attributes.status = 'FINISHED'",
+        order_by=["attributes.start_time DESC"],
+        max_results=1,
+    )
     if not runs:
         raise RuntimeError("No successful run found")
     run_id = runs[0].info.run_id
