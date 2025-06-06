@@ -11,7 +11,7 @@ services:
   airflow:
     build: .
     env_file: 
-      - .env 
+      - .env.ci 
     depends_on:
       - postgres
     environment:
@@ -38,7 +38,7 @@ services:
   api:
     build: ./api
     env_file: 
-      - .env  
+      - .env.ci 
     environment:
       PYTHONPATH: /opt/airflow/dags
       MODEL_STAGE: Production
