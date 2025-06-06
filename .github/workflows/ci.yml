@@ -34,6 +34,7 @@ jobs:
     - name: Run tests
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        DATA_CSV_PATH: /opt/airflow/tests/fixtures/transactions.csv  
         AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow_ci.db
         
       run: |
