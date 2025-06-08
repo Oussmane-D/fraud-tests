@@ -21,27 +21,13 @@ jobs:
           --health-retries=5
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+     - uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region:            ${{ secrets.AWS_REGION }}    # si vous l’avez défini
+     - name: Build Airflow image
+       run: docker compose build airflow
 
-    - name: Login to ECR
-      uses: docker/login-action@v3
-      with:
-        ecr: auto
-        logout: true
-
-    - name: Build Airflow image
-      run: docker compose build airflow
-
-    - name: Run Airflow tests
-      run: |
+     - name: Run Airflow tests
+       run: |
         docker compose run --rm --entrypoint="" \
           -e DATA_CSV_PATH=/opt/airflow/tests/fixtures/transactions.csv \
           -e MLFLOW_TRACKING_URI=http://dummy \
@@ -50,19 +36,19 @@ jobs:
           airflow bash -c "airflow db init && pytest /opt/airflow/tests -q"
 
     # 3. Build l’image API si les tests passent
-    - name: Build API image
-      run: docker compose build api
+     - name: Build API image
+       run: docker compose build api
 
     # 4. Login au registre
-    - name: Log-in to registry
-      uses: docker/login-action@v3
-      with:
+     - name: Log-in to registry
+       uses: docker/login-action@v3
+       with:
         username: ${{ secrets.REGISTRY_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
 
     # 5. Push avec SHA + latest
-    - name: Push API image
-      run: |
+     - name: Push API image
+       run: |
         IMAGE=fraude-api
         SHA=$(echo $GITHUB_SHA | cut -c1-7)
         docker tag fraude-detection-api:latest ${{ secrets.REGISTRY_USER }}/$IMAGE:latest
