@@ -9,8 +9,8 @@ from airflow.utils.dates import days_ago
 # ------------------------------------------------------------------------
 # Variables d’environnement (NE PAS écrire dans os.environ ici)
 # ------------------------------------------------------------------------
-MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI")      # ex. https://…hf.space
-DATA_CSV    = os.getenv("DATA_CSV_PATH")           # ex. /opt/airflow/…
+os.environ.setdefault("MLFLOW_TRACKING_URI", "file:///opt/airflow/mlruns")      # ex. https://…hf.space
+DATA_CSV = os.getenv("DATA_CSV_PATH", "/opt/airflow/data/transactions.csv")         # ex. /opt/airflow/…
 
 def _require(value, name: str) -> str:
     """Lève une erreur claire si la variable n’est pas définie."""
@@ -20,7 +20,7 @@ def _require(value, name: str) -> str:
             f"ou dans le workflow CI."
         )
     return value
-
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI")
 # ------------------------------------------------------------------------
 # DAG
 # ------------------------------------------------------------------------
@@ -61,6 +61,8 @@ with DAG(
             raise ValueError(f"'is_fraud' doit contenir 0/1, j’ai trouvé {labels}")
 
     def validate_data_callable(**_):
+        import pandas as pd
+        df = pd.read_csv(DATA_CSV)
         """Lit le CSV (chemin dans DATA_CSV_PATH) et applique validate_df."""
         csv_path = _require(DATA_CSV, "DATA_CSV_PATH")
         df = pd.read_csv(csv_path)

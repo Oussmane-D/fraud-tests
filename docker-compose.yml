@@ -15,17 +15,25 @@ services:
     depends_on:
       - postgres
     environment:
+
       PYTHONPATH: /opt/airflow/dags 
-      #MLFLOW_TRACKING_URI: "https://mlflow-server-demo.hf.space"
+      DATA_CSV_PATH: "/opt/airflow/data/transactions.csv"
+      MLFLOW_TRACKING_URI: "https://ousmane-d-mlflow-server-demo.hf.space"
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: eu-west-3
+      
+      # (éventuellement) MLFLOW_ARTIFACT_URI=s3://mon-bucket/mlflow-artifacts
     ports:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./tests:/opt/airflow/tests
-      - ./data:/opt/airflow/data                  # ← tes DAGs
+      - ./data:/opt/airflow/data 
+      -  ./mlruns:/opt/airflow/mlruns                 # ← tes DAGs
     command:
       - "bash"
       - "-c"
@@ -35,19 +43,26 @@ services:
         airflow webserver &
         airflow scheduler
         airflow standalone
-  
+ 
+ 
   api:
     build: ./api
-    env_file: 
-      - .env.ci 
-    environment:
-      PYTHONPATH: /opt/airflow/dags
-      MODEL_STAGE: Production
+    # si vous avez un fichier de secrets pour CI, gardez-le :
+    env_file:
+      - .env.ci
     ports:
       - "8000:8000"
+    # ici on ne mélange pas mapping et liste, on utilise mapping
+    environment:
+      # chemin dans le container vers votre code monté
+      PYTHONPATH: /app
+      MODEL_STAGE: Production
+      DATA_CSV_PATH: "/opt/airflow/tests/fixtures/transactions.csv"
+      MLFLOW_TRACKING_URI: "http://dummy"
+    # Montez votre dossier ./api dans /app pour que uvicorn trouve main.py
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     depends_on:
       - airflow
 
-# ← ajoute cette section tout en bas
 volumes:
   postgres-data:
