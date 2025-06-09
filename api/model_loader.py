@@ -1,8 +1,9 @@
 import mlflow
 from mlflow import MlflowClient
-
+import os
 EXPERIMENT_NAME = "fraud_detection_dag"
-
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+from mlflow.tracking import MlflowClient
 def load_latest_model() -> mlflow.pyfunc.PyFuncModel:
     client = MlflowClient(tracking_uri=None)  # lit MLFLOW_TRACKING_URI env
     exp = client.get_experiment_by_name(EXPERIMENT_NAME)

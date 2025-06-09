@@ -18,7 +18,7 @@ services:
 
       PYTHONPATH: /opt/airflow/dags 
       DATA_CSV_PATH: "/opt/airflow/data/transactions.csv"
-      MLFLOW_TRACKING_URI: "https://ousmane-d-mlflow-server-demo.hf.space"
+      MLFLOW_TRACKING_URI: "..."
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -58,7 +58,10 @@ services:
       PYTHONPATH: /app
       MODEL_STAGE: Production
       DATA_CSV_PATH: "/opt/airflow/tests/fixtures/transactions.csv"
-      MLFLOW_TRACKING_URI: "http://dummy"
+      MLFLOW_TRACKING_URI: "..."
+      AWS_ACCESS_KEY_ID:     "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION:    "${AWS_DEFAULT_REGION}"
     # Montez votre dossier ./api dans /app pour que uvicorn trouve main.py
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     depends_on:
